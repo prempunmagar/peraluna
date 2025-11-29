@@ -142,19 +142,19 @@ export function Step1Destination() {
           {showSuggestions && searchQuery.length >= 1 && suggestions.length > 0 && (
             <div
               ref={dropdownRef}
-              className="absolute left-0 right-0 top-[58px] z-[100] max-h-80 overflow-y-auto rounded-lg border border-border shadow-2xl"
-              style={{ backgroundColor: 'hsl(var(--background))' }}
+              className="absolute left-0 right-0 top-[58px] z-[100] max-h-80 overflow-y-auto rounded-lg border border-gray-200 shadow-2xl"
+              style={{ backgroundColor: '#ffffff' }}
             >
               {suggestions.map((place, index) => (
                 <button
                   key={`${place.city}-${place.country}`}
                   onClick={() => handleDestinationSelect(place)}
-                  className={`flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left transition-colors last:border-b-0 ${
+                  className={`flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-b-0 ${
                     index === selectedIndex
-                      ? 'bg-primary/10'
-                      : 'hover:bg-muted'
+                      ? 'bg-purple-50'
+                      : 'hover:bg-gray-50'
                   }`}
-                  style={{ backgroundColor: index === selectedIndex ? undefined : 'hsl(var(--background))' }}
+                  style={{ backgroundColor: index === selectedIndex ? '#f5f3ff' : '#ffffff' }}
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <Plane className="h-5 w-5" />
@@ -187,8 +187,8 @@ export function Step1Destination() {
           {showSuggestions && searchQuery.length >= 2 && suggestions.length === 0 && (
             <div
               ref={dropdownRef}
-              className="absolute left-0 right-0 top-[58px] z-[100] rounded-lg border border-border p-4 shadow-2xl"
-              style={{ backgroundColor: 'hsl(var(--background))' }}
+              className="absolute left-0 right-0 top-[58px] z-[100] rounded-lg border border-gray-200 p-4 shadow-2xl"
+              style={{ backgroundColor: '#ffffff' }}
             >
               <p className="text-center text-sm text-muted-foreground">
                 No destinations found. Try a different search or select from popular destinations below.
