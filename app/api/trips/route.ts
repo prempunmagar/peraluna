@@ -1,0 +1,144 @@
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
+import { dbTripToTrip, dbPlannedItemToPlannedItem, DbTrip, DbPlannedItem } from '@/lib/types/trip';
+
+// GET /api/trips - List all user trips
+export async function GET() {
+  try {
+    const supabase = await createServerSupabaseClient();
+
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Fetch trips
+    const { data: trips, error: tripsError } = await supabase
+      .from('trips')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (tripsError) {
+      return NextResponse.json(
+        { error: tripsError.message },
+        { status: 500 }
+      );
+    }
+
+    // Fetch planned items for all trips
+    const tripIds = trips.map((t: DbTrip) => t.id);
+    const { data: plannedItems, error: itemsError } = await supabase
+      .from('planned_items')
+      .select('*')
+      .in('trip_id', tripIds);
+
+    if (itemsError) {
+      return NextResponse.json(
+        { error: itemsError.message },
+        { status: 500 }
+      );
+    }
+
+    // Group planned items by trip
+    const itemsByTrip: Record<string, DbPlannedItem[]> = {};
+    plannedItems?.forEach((item: DbPlannedItem) => {
+      if (!itemsByTrip[item.trip_id]) {
+        itemsByTrip[item.trip_id] = [];
+      }
+      itemsByTrip[item.trip_id].push(item);
+    });
+
+    // Convert to client format
+    const clientTrips = trips.map((dbTrip: DbTrip) => {
+      const tripItems = (itemsByTrip[dbTrip.id] || []).map(dbPlannedItemToPlannedItem);
+      return dbTripToTrip(dbTrip, tripItems);
+    });
+
+    return NextResponse.json({ trips: clientTrips });
+  } catch {
+    return NextResponse.json(
+      { error: 'An unexpected error occurred' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/trips - Create a new trip
+export async function POST(request: Request) {
+  try {
+    const supabase = await createServerSupabaseClient();
+
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const {
+      destination,
+      country,
+      startDate,
+      endDate,
+      adults,
+      children,
+      budget,
+      budgetType,
+      flexibility,
+      interests,
+    } = body;
+
+    // Validate required fields
+    if (!destination || !country || !startDate || !endDate) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Insert trip
+    const { data: newTrip, error: insertError } = await supabase
+      .from('trips')
+      .insert({
+        user_id: user.id,
+        destination,
+        country,
+        start_date: startDate,
+        end_date: endDate,
+        adults: adults || 1,
+        children: children || 0,
+        budget: budget || 3000,
+        budget_type: budgetType || 'total',
+        flexibility: flexibility || 'moderately-flexible',
+        interests: interests || [],
+        status: 'planning',
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      return NextResponse.json(
+        { error: insertError.message },
+        { status: 500 }
+      );
+    }
+
+    // Convert to client format
+    const clientTrip = dbTripToTrip(newTrip as DbTrip, []);
+
+    return NextResponse.json({ trip: clientTrip }, { status: 201 });
+  } catch {
+    return NextResponse.json(
+      { error: 'An unexpected error occurred' },
+      { status: 500 }
+    );
+  }
+}

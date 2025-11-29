@@ -1,0 +1,161 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* Peraluna Custom Colors */
+  /* Primary: Deep Purple (#7c3aed) */
+  /* Accent: Bright Cyan (#06b6d4) */
+  /* Secondary: Warm Coral (#f97316) */
+  /* Background: Near-white (#fafafa) */
+  /* Text: Near-black (#0f172a) */
+
+  --background: 250 250 250; /* #fafafa */
+  --foreground: 15 23 42; /* #0f172a */
+  --card: 255 255 255;
+  --card-foreground: 15 23 42;
+  --popover: 255 255 255;
+  --popover-foreground: 15 23 42;
+  --primary: 124 58 237; /* Deep Purple #7c3aed */
+  --primary-foreground: 255 255 255;
+  --secondary: 249 115 22; /* Warm Coral #f97316 */
+  --secondary-foreground: 255 255 255;
+  --muted: 241 245 249;
+  --muted-foreground: 100 116 139;
+  --accent: 6 182 212; /* Bright Cyan #06b6d4 */
+  --accent-foreground: 255 255 255;
+  --destructive: 239 68 68;
+  --destructive-foreground: 255 255 255;
+  --border: 226 232 240;
+  --input: 226 232 240;
+  --ring: 124 58 237; /* Deep Purple */
+  --chart-1: 124 58 237;
+  --chart-2: 6 182 212;
+  --chart-3: 249 115 22;
+  --chart-4: 168 85 247;
+  --chart-5: 14 165 233;
+  --sidebar: 248 250 252;
+  --sidebar-foreground: 15 23 42;
+  --sidebar-primary: 124 58 237;
+  --sidebar-primary-foreground: 255 255 255;
+  --sidebar-accent: 6 182 212;
+  --sidebar-accent-foreground: 255 255 255;
+  --sidebar-border: 226 232 240;
+  --sidebar-ring: 124 58 237;
+}
+
+.dark {
+  /* Dark Mode: Lighter variations maintaining vibrancy */
+  --background: 15 23 42; /* Near-black */
+  --foreground: 248 250 252;
+  --card: 30 41 59;
+  --card-foreground: 248 250 252;
+  --popover: 30 41 59;
+  --popover-foreground: 248 250 252;
+  --primary: 147 97 245; /* Lighter Purple for dark mode */
+  --primary-foreground: 255 255 255;
+  --secondary: 251 146 60; /* Lighter Coral for dark mode */
+  --secondary-foreground: 255 255 255;
+  --muted: 51 65 85;
+  --muted-foreground: 148 163 184;
+  --accent: 34 211 238; /* Lighter Cyan for dark mode */
+  --accent-foreground: 15 23 42;
+  --destructive: 248 113 113;
+  --destructive-foreground: 255 255 255;
+  --border: 51 65 85;
+  --input: 51 65 85;
+  --ring: 147 97 245;
+  --chart-1: 147 97 245;
+  --chart-2: 34 211 238;
+  --chart-3: 251 146 60;
+  --chart-4: 196 181 253;
+  --chart-5: 56 189 248;
+  --sidebar: 30 41 59;
+  --sidebar-foreground: 248 250 252;
+  --sidebar-primary: 147 97 245;
+  --sidebar-primary-foreground: 255 255 255;
+  --sidebar-accent: 34 211 238;
+  --sidebar-accent-foreground: 15 23 42;
+  --sidebar-border: 51 65 85;
+  --sidebar-ring: 147 97 245;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Typing dots animation */
+@keyframes typing-dot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.typing-dot {
+  animation: typing-dot 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
