@@ -6,58 +6,40 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// POST /api/trips/[id]/items - Add planned item to trip
+// POST /api/trips/[id]/items
 export async function POST(request: Request, { params }: RouteParams) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+
   try {
     const { id: tripId } = await params;
     const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify trip ownership
-    const { data: trip, error: tripError } = await supabase
+    const { data: trip } = await supabase
       .from('trips')
       .select('id')
       .eq('id', tripId)
       .eq('user_id', user.id)
       .single();
 
-    if (tripError || !trip) {
-      return NextResponse.json(
-        { error: 'Trip not found' },
-        { status: 404 }
-      );
+    if (!trip) {
+      return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
     }
 
     const body = await request.json();
-    const {
-      type,
-      provider,
-      title,
-      subtitle,
-      details,
-      price,
-      nights,
-      tag,
-    } = body;
+    const { type, provider, title, subtitle, details, price, nights, tag } = body;
 
-    // Validate required fields
     if (!type || !title) {
-      return NextResponse.json(
-        { error: 'Type and title are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Type and title are required' }, { status: 400 });
     }
 
-    // Insert planned item
-    const { data: newItem, error: insertError } = await supabase
+    const { data: newItem, error } = await supabase
       .from('planned_items')
       .insert({
         trip_id: tripId,
@@ -74,85 +56,53 @@ export async function POST(request: Request, { params }: RouteParams) {
       .select()
       .single();
 
-    if (insertError) {
-      return NextResponse.json(
-        { error: insertError.message },
-        { status: 500 }
-      );
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Convert to client format
     const clientItem = dbPlannedItemToPlannedItem(newItem as DbPlannedItem);
-
     return NextResponse.json({ item: clientItem }, { status: 201 });
   } catch {
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
   }
 }
 
-// DELETE /api/trips/[id]/items?itemId=xxx - Remove planned item
+// DELETE /api/trips/[id]/items?itemId=xxx
 export async function DELETE(request: Request, { params }: RouteParams) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+
   try {
     const { id: tripId } = await params;
     const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get itemId from query params
     const url = new URL(request.url);
     const itemId = url.searchParams.get('itemId');
 
     if (!itemId) {
-      return NextResponse.json(
-        { error: 'itemId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'itemId is required' }, { status: 400 });
     }
 
-    // Verify trip ownership
-    const { data: trip, error: tripError } = await supabase
+    const { data: trip } = await supabase
       .from('trips')
       .select('id')
       .eq('id', tripId)
       .eq('user_id', user.id)
       .single();
 
-    if (tripError || !trip) {
-      return NextResponse.json(
-        { error: 'Trip not found' },
-        { status: 404 }
-      );
+    if (!trip) {
+      return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
     }
 
-    // Delete planned item
-    const { error: deleteError } = await supabase
-      .from('planned_items')
-      .delete()
-      .eq('id', itemId)
-      .eq('trip_id', tripId);
-
-    if (deleteError) {
-      return NextResponse.json(
-        { error: deleteError.message },
-        { status: 500 }
-      );
-    }
-
+    await supabase.from('planned_items').delete().eq('id', itemId).eq('trip_id', tripId);
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
   }
 }

@@ -2,6 +2,14 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
+  // Check if Supabase is configured
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json(
+      { error: 'Registration requires Supabase configuration' },
+      { status: 503 }
+    );
+  }
+
   try {
     const { email, password, name } = await request.json();
 
@@ -31,7 +39,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if email confirmation is required
     if (data.user && !data.session) {
       return NextResponse.json({
         message: 'Please check your email to confirm your account',

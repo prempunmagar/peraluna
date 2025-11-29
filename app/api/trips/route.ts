@@ -4,19 +4,19 @@ import { dbTripToTrip, dbPlannedItemToPlannedItem, DbTrip, DbPlannedItem } from 
 
 // GET /api/trips - List all user trips
 export async function GET() {
+  // Check if Supabase is configured
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({ trips: [] });
+  }
+
   try {
     const supabase = await createServerSupabaseClient();
-
-    // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ trips: [] });
     }
 
-    // Fetch trips
     const { data: trips, error: tripsError } = await supabase
       .from('trips')
       .select('*')
@@ -24,27 +24,15 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (tripsError) {
-      return NextResponse.json(
-        { error: tripsError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ trips: [] });
     }
 
-    // Fetch planned items for all trips
     const tripIds = trips.map((t: DbTrip) => t.id);
-    const { data: plannedItems, error: itemsError } = await supabase
+    const { data: plannedItems } = await supabase
       .from('planned_items')
       .select('*')
       .in('trip_id', tripIds);
 
-    if (itemsError) {
-      return NextResponse.json(
-        { error: itemsError.message },
-        { status: 500 }
-      );
-    }
-
-    // Group planned items by trip
     const itemsByTrip: Record<string, DbPlannedItem[]> = {};
     plannedItems?.forEach((item: DbPlannedItem) => {
       if (!itemsByTrip[item.trip_id]) {
@@ -53,7 +41,6 @@ export async function GET() {
       itemsByTrip[item.trip_id].push(item);
     });
 
-    // Convert to client format
     const clientTrips = trips.map((dbTrip: DbTrip) => {
       const tripItems = (itemsByTrip[dbTrip.id] || []).map(dbPlannedItemToPlannedItem);
       return dbTripToTrip(dbTrip, tripItems);
@@ -61,50 +48,35 @@ export async function GET() {
 
     return NextResponse.json({ trips: clientTrips });
   } catch {
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+    return NextResponse.json({ trips: [] });
   }
 }
 
 // POST /api/trips - Create a new trip
 export async function POST(request: Request) {
+  // Check if Supabase is configured
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json(
+      { error: 'Supabase not configured' },
+      { status: 503 }
+    );
+  }
+
   try {
     const supabase = await createServerSupabaseClient();
-
-    // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const {
-      destination,
-      country,
-      startDate,
-      endDate,
-      adults,
-      children,
-      budget,
-      budgetType,
-      flexibility,
-      interests,
-    } = body;
+    const { destination, country, startDate, endDate, adults, children, budget, budgetType, flexibility, interests } = body;
 
-    // Validate required fields
     if (!destination || !country || !startDate || !endDate) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Insert trip
     const { data: newTrip, error: insertError } = await supabase
       .from('trips')
       .insert({
@@ -125,20 +97,12 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
-      return NextResponse.json(
-        { error: insertError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    // Convert to client format
     const clientTrip = dbTripToTrip(newTrip as DbTrip, []);
-
     return NextResponse.json({ trip: clientTrip }, { status: 201 });
   } catch {
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
   }
 }
