@@ -82,10 +82,10 @@ export default function TripSetupPage() {
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!startDate || !endDate) return;
 
-    const tripId = createTrip({
+    const tripId = await createTrip({
       destination,
       country,
       startDate,

@@ -1,40 +1,22 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Search, Loader2, MapPin } from 'lucide-react';
+import { Search, MapPin, Plane } from 'lucide-react';
 import { useWizardStore } from '@/lib/stores/wizard-store';
+import { searchDestinations, type Destination } from '@/lib/data/destinations';
 
 const POPULAR_DESTINATIONS = [
   { city: 'Paris', country: 'France' },
   { city: 'Tokyo', country: 'Japan' },
   { city: 'Bali', country: 'Indonesia' },
-  { city: 'New York', country: 'USA' },
+  { city: 'New York', country: 'United States' },
   { city: 'Barcelona', country: 'Spain' },
-  { city: 'Dubai', country: 'UAE' },
-  { city: 'London', country: 'UK' },
+  { city: 'Dubai', country: 'United Arab Emirates' },
+  { city: 'London', country: 'United Kingdom' },
   { city: 'Rome', country: 'Italy' },
 ];
-
-interface PlaceSuggestion {
-  city: string;
-  country: string;
-  displayName: string;
-}
-
-// Nominatim API response type
-interface NominatimResult {
-  display_name: string;
-  name?: string;
-  address?: {
-    city?: string;
-    town?: string;
-    village?: string;
-    state?: string;
-    country?: string;
-  };
-}
 
 // Debounce helper
 function useDebounce<T>(value: T, delay: number): T {
@@ -57,58 +39,18 @@ export function Step1Destination() {
   const { destination, country, updateField } = useWizardStore();
   const [searchQuery, setSearchQuery] = useState(destination);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const debouncedSearchQuery = useDebounce(searchQuery, 150); // Faster since it's local
 
-  // Fetch places from OpenStreetMap Nominatim API
-  const fetchPlaces = useCallback(async (query: string) => {
-    if (query.length < 2) {
-      setSuggestions([]);
-      return;
+  // Search destinations using local database
+  const suggestions = useMemo(() => {
+    if (!debouncedSearchQuery || debouncedSearchQuery.length < 1) {
+      return [];
     }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6&addressdetails=1&featuretype=city`
-      );
-      const data = await response.json();
-
-      const places: PlaceSuggestion[] = data
-        .filter((item: NominatimResult) => item.address && (item.address.city || item.address.town || item.address.village || item.address.state || item.name))
-        .map((item: NominatimResult) => {
-          const addr = item.address!;
-          const cityName = addr.city || addr.town || addr.village || addr.state || item.name;
-          const countryName = addr.country || '';
-          return {
-            city: cityName,
-            country: countryName,
-            displayName: item.display_name,
-          };
-        })
-        .filter((place: PlaceSuggestion, index: number, self: PlaceSuggestion[]) =>
-          index === self.findIndex((p) => p.city === place.city && p.country === place.country)
-        );
-
-      setSuggestions(places);
-    } catch (error) {
-      console.error('Error fetching places:', error);
-      setSuggestions([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Fetch places when debounced search query changes
-  useEffect(() => {
-    if (debouncedSearchQuery && showSuggestions) {
-      fetchPlaces(debouncedSearchQuery);
-    }
-  }, [debouncedSearchQuery, showSuggestions, fetchPlaces]);
+    return searchDestinations(debouncedSearchQuery, 8);
+  }, [debouncedSearchQuery]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -126,12 +68,11 @@ export function Step1Destination() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleDestinationSelect = (city: string, countryName: string) => {
-    updateField('destination', city);
-    updateField('country', countryName);
-    setSearchQuery(city);
+  const handleDestinationSelect = (dest: Destination | { city: string; country: string }) => {
+    updateField('destination', dest.city);
+    updateField('country', dest.country);
+    setSearchQuery(dest.city);
     setShowSuggestions(false);
-    setSuggestions([]);
   };
 
   const handleSearchChange = (value: string) => {
@@ -144,57 +85,114 @@ export function Step1Destination() {
     setShowSuggestions(true);
   };
 
+  // Keyboard navigation
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+          handleDestinationSelect(suggestions[selectedIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+        break;
+    }
+  };
+
+  // Reset selection when suggestions change
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [suggestions]);
+
   return (
     <div className="space-y-6">
       {/* Search Input */}
       <div className="space-y-2">
-        <Label htmlFor="destination">Search Destination</Label>
+        <Label htmlFor="destination">Where do you want to go?</Label>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={inputRef}
             id="destination"
             type="text"
-            placeholder="e.g., Paris, Tokyo, Bali..."
+            placeholder="Search cities, countries, or regions..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             onFocus={() => searchQuery.length > 0 && setShowSuggestions(true)}
+            onKeyDown={handleKeyDown}
             className="h-14 pl-11 text-base"
+            autoComplete="off"
           />
 
           {/* Autocomplete Dropdown */}
-          {showSuggestions && searchQuery.length >= 2 && (
+          {showSuggestions && searchQuery.length >= 1 && suggestions.length > 0 && (
             <div
               ref={dropdownRef}
-              className="absolute left-0 right-0 top-[58px] z-[100] max-h-72 overflow-y-auto rounded-lg border border-border bg-white shadow-2xl dark:bg-gray-900"
-              style={{ backgroundColor: 'white' }}
+              className="absolute left-0 right-0 top-[58px] z-[100] max-h-80 overflow-y-auto rounded-lg border border-border shadow-2xl"
+              style={{ backgroundColor: 'hsl(var(--background))' }}
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center gap-2 bg-white px-4 py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">Searching places...</span>
-                </div>
-              ) : suggestions.length > 0 ? (
-                suggestions.map((place, index) => (
-                  <button
-                    key={`${place.city}-${place.country}-${index}`}
-                    onClick={() => handleDestinationSelect(place.city, place.country)}
-                    className="flex w-full items-center gap-3 border-b border-gray-100 bg-white px-4 py-3 text-left transition-colors hover:bg-gray-50 last:border-b-0"
-                  >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <MapPin className="h-5 w-5" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-gray-900">{place.city}</p>
-                      <p className="truncate text-sm text-gray-500">{place.country}</p>
+              {suggestions.map((place, index) => (
+                <button
+                  key={`${place.city}-${place.country}`}
+                  onClick={() => handleDestinationSelect(place)}
+                  className={`flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left transition-colors last:border-b-0 ${
+                    index === selectedIndex
+                      ? 'bg-primary/10'
+                      : 'hover:bg-muted'
+                  }`}
+                  style={{ backgroundColor: index === selectedIndex ? undefined : 'hsl(var(--background))' }}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Plane className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-foreground">{place.city}</p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {place.country}
+                      {place.region && ` • ${place.region}`}
+                    </p>
+                  </div>
+                  {place.tags && place.tags.length > 0 && (
+                    <div className="hidden sm:flex gap-1">
+                      {place.tags.slice(0, 2).map(tag => (
+                        <span
+                          key={tag}
+                          className="rounded-full bg-secondary/10 px-2 py-0.5 text-xs text-secondary-foreground"
+                        >
+                          {tag}
+                        </span>
+                      ))}
                     </div>
-                  </button>
-                ))
-              ) : (
-                <div className="bg-white px-4 py-6 text-center text-sm text-gray-500">
-                  No places found. Try a different search.
-                </div>
-              )}
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* No results message */}
+          {showSuggestions && searchQuery.length >= 2 && suggestions.length === 0 && (
+            <div
+              ref={dropdownRef}
+              className="absolute left-0 right-0 top-[58px] z-[100] rounded-lg border border-border p-4 shadow-2xl"
+              style={{ backgroundColor: 'hsl(var(--background))' }}
+            >
+              <p className="text-center text-sm text-muted-foreground">
+                No destinations found. Try a different search or select from popular destinations below.
+              </p>
             </div>
           )}
         </div>
@@ -214,7 +212,7 @@ export function Step1Destination() {
           {POPULAR_DESTINATIONS.map((dest) => (
             <button
               key={`${dest.city}-${dest.country}`}
-              onClick={() => handleDestinationSelect(dest.city, dest.country)}
+              onClick={() => handleDestinationSelect(dest)}
               className={`group flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all duration-200 hover:border-primary hover:bg-primary/5 ${
                 destination === dest.city && country === dest.country
                   ? 'border-primary bg-primary/10'
